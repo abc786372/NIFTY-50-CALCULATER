@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nifty to Option Stop-Loss Calculator</title>
+<style>
+* { box-sizing: border-box; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html, body { width: 100%; }
+body {
+font-family: 'Georgia', 'Times New Roman', serif;
+background: #faf5ea;
+color: #3b3327;
+margin: 0;
+padding: 0;
+display: block;
+min-height: 100vh;
+}
+.card {
+background: #faf5ea;
+border: none;
+border-radius: 0;
+padding: 24px max(20px, 4vw) calc(28px + env(safe-area-inset-bottom, 0px));
+max-width: none;
+width: 100%;
+min-height: 100vh;
+box-shadow: none;
+}
+h1 {
+font-size: 22px;
+letter-spacing: 0.3px;
+margin: 0 0 4px 0;
+color: #2f5c8a;
+}
+.sub {
+font-size: 13px;
+color: #7a6f5c;
+margin-bottom: 24px;
+font-style: italic;
+}
+label {
+display: block;
+font-size: 13px;
+color: #4a4132;
+margin-top: 14px;
+margin-bottom: 4px;
+}
+input[type=number] {
+width: 100%;
+padding: 9px 10px;
+border-radius: 8px;
+border: 1px solid #cbb892;
+background: #fffdf8;
+color: #3b3327;
+font-size: 15px;
+}
+.row { display: flex; gap: 12px; }
+.row > div { flex: 1; }
+.position-toggle, .preset-toggle {
+display: flex;
+gap: 8px;
+margin-top: 6px;
+}
+.toggle-btn {
+flex: 1;
+padding: 9px 6px;
+border-radius: 8px;
+border: 1px solid #cbb892;
+background: #fffdf8;
+color: #5a503f;
+font-size: 13px;
+cursor: pointer;
+text-align: center;
+transition: all 0.15s;
+}
+.toggle-btn.active {
+background: #4a7fb5;
+color: #f5f3ea;
+border-color: #4a7fb5;
+font-weight: bold;
+}
+.buffer-row {
+display: flex;
+gap: 8px;
+margin-top: 6px;
+align-items: center;
+}
+.custom-buffer {
+width: 90px;
+}
+button.calc {
+margin-top: 22px;
+width: 100%;
+padding: 13px;
+border-radius: 9px;
+border: none;
+background: #4a7fb5;
+color: #f5f3ea;
+font-size: 15px;
+font-weight: bold;
+letter-spacing: 0.3px;
+cursor: pointer;
+}
+button.calc:hover { background: #6fa3d8; }
+.results {
+margin-top: 24px;
+padding-top: 18px;
+border-top: 1px solid #d8c9a8;
+display: none;
+}
+.results.show { display: block; }
+.result-line {
+display: flex;
+justify-content: space-between;
+padding: 7px 0;
+font-size: 14.5px;
+border-bottom: 1px dashed #ddd0b3;
+}
+.result-line .label { color: #7a6f5c; }
+.result-line .value { color: #3b3327; font-weight: bold; }
+.highlight {
+background: #eaf1f8;
+border: 1px solid #4a7fb5;
+border-radius: 8px;
+padding: 12px 14px;
+margin-top: 10px;
+}
+.highlight .result-line { border: none; padding: 4px 0; }
+.highlight .value { color: #2f5c8a; font-size: 17px; }
+.sectionTitle {
+font-size: 12px;
+text-transform: uppercase;
+letter-spacing: 1px;
+color: #8a7a5c;
+margin-top: 18px;
+margin-bottom: 4px;
+}
+.warning {
+display: none;
+background: #fbe9e7;
+border: 1px solid #c0392b;
+color: #7a2015;
+border-radius: 8px;
+padding: 10px 12px;
+margin-top: 14px;
+font-size: 13px;
+}
+.warning.show { display: block; }
+.sizing { margin-top: 30px; padding-top: 20px; border-top: 2px solid #cbb892; }
+.sizing h2 { font-size: 18px; margin: 0 0 4px 0; color: #2f5c8a; }
+.note { font-size: 13px; color: #7a6f5c; font-style: italic; margin-top: 12px; }
+.bad { background: #fbe9e7; border: 1px solid #c0392b; color: #7a2015; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Nifty &rarr; Option Stop-Loss Calculator</h1>
+<div class="sub">Convert your index-based stop into a precise option premium stop.</div>
+
+<label>Position Type</label>
+<div class="position-toggle">
+<div class="toggle-btn active" id="btn-call" onclick="setPosition('call')">Long Call</div>
+<div class="toggle-btn" id="btn-put" onclick="setPosition('put')">Long Put</div>
+</div>
+
+<div class="row">
+<div>
+<label>Nifty Entry Price</label>
+<input type="number" id="niftyEntry" placeholder="e.g. 23000">
+</div>
+<div>
+<label>Nifty Stop-Loss Price</label>
+<input type="number" id="niftySL" placeholder="e.g. 22950">
+</div>
+</div>
+
+<div class="row">
+<div>
+<label>Option Entry Premium (₹)</label>
+<input type="number" id="entryPremium" placeholder="e.g. 150">
+</div>
+<div>
+<label>Delta (0 to 1)</label>
+<input type="number" step="0.01" id="delta" placeholder="e.g. 0.5">
+</div>
+</div>
+
+<div class="row">
+<div>
+<label>Lot Size</label>
+<input type="number" id="lotSize" placeholder="e.g. 75">
+</div>
+</div>
+
+<label>Setup Quality / Safety Buffer</label>
+<div class="preset-toggle">
+<div class="toggle-btn active" id="btn-aplus" onclick="setBuffer(5,'aplus')">A+ Setup (5%)</div>
+<div class="toggle-btn" id="btn-a" onclick="setBuffer(10,'a')">A Setup (10%)</div>
+<div class="toggle-btn" id="btn-b" onclick="setBuffer(15,'b')">B Setup (15%)</div>
+</div>
+<div class="buffer-row">
+<label style="margin:0;">Custom %:</label>
+<input type="number" class="custom-buffer" id="customBuffer" placeholder="e.g. 8" oninput="setCustomBuffer()">
+</div>
+
+<button class="calc" onclick="calculate()">Calculate Stop-Loss</button>
+
+<div class="warning" id="warning"></div>
+
+<div class="results" id="results">
+<div class="sectionTitle">Plain Delta Conversion (No Buffer)</div>
+<div class="result-line"><span class="label">Option Stop-Loss Price</span><span class="value" id="rawSL">-</span></div>
+<div class="result-line"><span class="label">Risk per Unit</span><span class="value" id="rawRiskUnit">-</span></div>
+<div class="result-line"><span class="label">Total Risk (Lot)</span><span class="value" id="rawRiskTotal">-</span></div>
+<div class="result-line"><span class="label">% Risk on Premium</span><span class="value" id="rawRiskPct">-</span></div>
+
+<div class="sectionTitle">With Safety Buffer</div>
+<div class="highlight">
+<div class="result-line"><span class="label">Buffered Option Stop-Loss</span><span class="value" id="buffSL">-</span></div>
+<div class="result-line"><span class="label">Risk per Unit</span><span class="value" id="buffRiskUnit">-</span></div>
+<div class="result-line"><span class="label">Total Risk (Lot)</span><span class="value" id="buffRiskTotal">-</span></div>
+<div class="result-line"><span class="label">% Risk on Premium</span><span class="value" id="buffRiskPct">-</span></div>
+</div>
+</div>
+
+<div class="sizing">
+<h2>Position Size Calculator</h2>
+<div class="sub" style="margin-bottom:6px;">Linked to the stop-loss above: it uses your buffered risk per lot automatically.</div>
+<div class="row">
+<div>
+<label>Trading Capital (₹)</label>
+<input type="number" id="capital" placeholder="e.g. 200000" oninput="updateSizing()">
+</div>
+<div>
+<label>Risk per Trade (% of capital)</label>
+<input type="number" step="0.1" id="riskPct" placeholder="e.g. 1" oninput="updateSizing()">
+</div>
+</div>
+<div id="sizeOut"></div>
+</div>
+</div>
+
+<script>
+let position = 'call';
+let bufferPct = 5;
+
+function setPosition(p) {
+position = p;
+document.getElementById('btn-call').classList.toggle('active', p==='call');
+document.getElementById('btn-put').classList.toggle('active', p==='put');
+}
+
+function setBuffer(pct, preset) {
+bufferPct = pct;
+document.getElementById('customBuffer').value = '';
+document.getElementById('btn-aplus').classList.toggle('active', preset==='aplus');
+document.getElementById('btn-a').classList.toggle('active', preset==='a');
+document.getElementById('btn-b').classList.toggle('active', preset==='b');
+}
+
+function setCustomBuffer() {
+const val = parseFloat(document.getElementById('customBuffer').value);
+if (!isNaN(val)) {
+bufferPct = val;
+document.getElementById('btn-aplus').classList.remove('active');
+document.getElementById('btn-a').classList.remove('active');
+document.getElementById('btn-b').classList.remove('active');
+}
+}
+
+function calculate() {
+const niftyEntry = parseFloat(document.getElementById('niftyEntry').value);
+const niftySL = parseFloat(document.getElementById('niftySL').value);
+const entryPremium = parseFloat(document.getElementById('entryPremium').value);
+const delta = parseFloat(document.getElementById('delta').value);
+const lotSize = parseFloat(document.getElementById('lotSize').value) || 1;
+
+const warningEl = document.getElementById('warning');
+warningEl.classList.remove('show');
+warningEl.innerText = '';
+
+if (isNaN(niftyEntry) || isNaN(niftySL) || isNaN(entryPremium) || isNaN(delta)) {
+alert('Please fill in Nifty entry, Nifty stop-loss, option entry premium, and delta.');
+return;
+}
+
+// Direction check: for a long call, stop-loss should be BELOW entry (Nifty falling hurts you).
+// For a long put, stop-loss should be ABOVE entry (Nifty rising hurts you).
+if (position === 'call' && niftySL >= niftyEntry) {
+warningEl.innerText = 'Warning: for a long call, your Nifty stop-loss should be set below your Nifty entry price. Please check your inputs.';
+warningEl.classList.add('show');
+}
+if (position === 'put' && niftySL <= niftyEntry) {
+warningEl.innerText = 'Warning: for a long put, your Nifty stop-loss should be set above your Nifty entry price. Please check your inputs.';
+warningEl.classList.add('show');
+}
+
+const niftyPoints = Math.abs(niftyEntry - niftySL);
+const absDelta = Math.abs(delta);
+const rawPremiumMove = niftyPoints * absDelta;
+const buffPremiumMove = rawPremiumMove * (1 + bufferPct/100);
+
+// Premium always falls when the position moves against you, regardless of call or put,
+// because delta is entered as a positive magnitude here (0 to 1) representing |delta|.
+const rawSL = entryPremium - rawPremiumMove;
+const buffSL = entryPremium - buffPremiumMove;
+
+const rawRiskUnit = entryPremium - rawSL;
+const buffRiskUnit = entryPremium - buffSL;
+
+const rawRiskTotal = rawRiskUnit * lotSize;
+const buffRiskTotal = buffRiskUnit * lotSize;
+
+const rawRiskPct = (rawRiskUnit / entryPremium) * 100;
+const buffRiskPct = (buffRiskUnit / entryPremium) * 100;
+
+document.getElementById('rawSL').innerText = (rawSL < 0 ? 'Invalid (negative)' : '₹' + rawSL.toFixed(2));
+document.getElementById('rawRiskUnit').innerText = '₹' + rawRiskUnit.toFixed(2);
+document.getElementById('rawRiskTotal').innerText = '₹' + rawRiskTotal.toFixed(2);
+document.getElementById('rawRiskPct').innerText = rawRiskPct.toFixed(2) + '%';
+
+document.getElementById('buffSL').innerText = (buffSL < 0 ? 'Invalid (negative)' : '₹' + buffSL.toFixed(2));
+document.getElementById('buffRiskUnit').innerText = '₹' + buffRiskUnit.toFixed(2);
+document.getElementById('buffRiskTotal').innerText = '₹' + buffRiskTotal.toFixed(2);
+document.getElementById('buffRiskPct').innerText = buffRiskPct.toFixed(2) + '%';
+
+document.getElementById('results').classList.add('show');
+lastCalc = { rawRiskUnit: rawRiskUnit, buffRiskUnit: buffRiskUnit, entryPremium: entryPremium, lotSize: lotSize };
+updateSizing();
+}
+
+let lastCalc = null;
+
+function inr(n) {
+return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function updateSizing() {
+const out = document.getElementById('sizeOut');
+const capital = parseFloat(document.getElementById('capital').value);
+const riskPct = parseFloat(document.getElementById('riskPct').value);
+
+if (!lastCalc) {
+out.innerHTML = '<div class="note">Run the stop-loss calculation above first.</div>';
+return;
+}
+if (isNaN(capital) || isNaN(riskPct) || capital <= 0 || riskPct <= 0) {
+out.innerHTML = '<div class="note">Enter your trading capital and risk percentage.</div>';
+return;
+}
+
+const maxRisk = capital * riskPct / 100;
+const buffLotRisk = lastCalc.buffRiskUnit * lastCalc.lotSize;
+const rawLotRisk = lastCalc.rawRiskUnit * lastCalc.lotSize;
+const outlayPerLot = lastCalc.entryPremium * lastCalc.lotSize;
+
+if (buffLotRisk <= 0) {
+out.innerHTML = '<div class="bad">Risk per lot is zero or negative. Check your stop-loss inputs.</div>';
+return;
+}
+
+const buffLots = Math.floor(maxRisk / buffLotRisk);
+const rawLots = Math.floor(maxRisk / rawLotRisk);
+const actualRisk = buffLots * buffLotRisk;
+const outlay = buffLots * outlayPerLot;
+const outlayPct = outlay / capital * 100;
+
+let html = '<div class="sectionTitle">Based on Buffered Stop-Loss</div><div class="highlight">';
+html += '<div class="result-line"><span class="label">Max Risk Allowed</span><span class="value">' + inr(maxRisk) + '</span></div>';
+html += '<div class="result-line"><span class="label">Risk per Lot (buffered)</span><span class="value">' + inr(buffLotRisk) + '</span></div>';
+html += '<div class="result-line"><span class="label">Lots to Trade</span><span class="value">' + buffLots + '</span></div>';
+html += '<div class="result-line"><span class="label">Actual Risk if Stop Hits</span><span class="value">' + inr(actualRisk) + '</span></div>';
+html += '<div class="result-line"><span class="label">Premium Outlay</span><span class="value">' + inr(outlay) + '</span></div>';
+html += '<div class="result-line"><span class="label">Capital Deployed</span><span class="value">' + outlayPct.toFixed(2) + '%</span></div>';
+html += '</div>';
+html += '<div class="note">For reference, the plain delta stop without the buffer would allow ' + rawLots + ' lot(s). Sizing on the buffered stop is the safer figure.</div>';
+
+if (buffLots < 1) {
+const needPct = buffLotRisk / capital * 100;
+html += '<div class="bad">Even 1 lot risks ' + inr(buffLotRisk) + ', which is more than your limit of ' + inr(maxRisk) + '. You would need a risk setting of about ' + needPct.toFixed(2) + '% of capital, or a tighter stop, to take this trade.</div>';
+}
+if (outlayPct > 100) {
+html += '<div class="bad">The premium outlay exceeds your capital. Reduce the lots.</div>';
+}
+out.innerHTML = html;
+}
+
+updateSizing();
+setBuffer(5,'aplus');
+</script>
+</body>
+</html>

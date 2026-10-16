@@ -103,13 +103,8 @@ letter-spacing: 0.3px;
 cursor: pointer;
 }
 button.calc:hover { background: #6fa3d8; }
-.results {
-margin-top: 24px;
-padding-top: 18px;
-border-top: 1px solid #d8c9a8;
-display: none;
-}
-.results.show { display: block; }
+.answer-grid { display: none; }
+.answer-grid.show { display: grid; }
 .result-line {
 display: flex;
 justify-content: space-between;
@@ -151,6 +146,40 @@ font-size: 13px;
 .sizing h2 { font-size: 18px; margin: 0 0 4px 0; color: #2f5c8a; }
 .note { font-size: 13px; color: #7a6f5c; font-style: italic; margin-top: 12px; }
 .bad { background: #fbe9e7; border: 1px solid #c0392b; color: #7a2015; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 13px; }
+.target { margin-top: 30px; padding-top: 20px; border-top: 2px solid #cbb892; }
+.target h2 { font-size: 18px; margin: 0 0 4px 0; color: #2f5c8a; }
+.answer-grid {
+grid-template-columns: repeat(3, 1fr);
+gap: 14px;
+margin-top: 30px;
+padding-top: 20px;
+border-top: 2px solid #cbb892;
+}
+@media (max-width: 680px) {
+.answer-grid { grid-template-columns: 1fr; }
+}
+.answer-box {
+background: #faf5ea;
+border: 1px solid #d8c9a8;
+border-radius: 12px;
+padding: 16px;
+aspect-ratio: 1 / 1;
+overflow-y: auto;
+display: flex;
+flex-direction: column;
+}
+.answer-box h3 {
+font-size: 14px;
+margin: 0 0 10px 0;
+color: #2f5c8a;
+text-transform: uppercase;
+letter-spacing: 0.5px;
+}
+.answer-box .result-line { font-size: 13px; padding: 5px 0; }
+.answer-box .highlight { padding: 8px 10px; margin-top: 6px; }
+.answer-box .highlight .value { font-size: 14px; }
+.answer-box .sectionTitle { font-size: 10.5px; margin-top: 10px; }
+.answer-box .note { font-size: 11px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -204,29 +233,11 @@ font-size: 13px;
 <input type="number" class="custom-buffer" id="customBuffer" placeholder="e.g. 8" oninput="setCustomBuffer()">
 </div>
 
-<button class="calc" onclick="calculate()">Calculate Stop-Loss</button>
-
 <div class="warning" id="warning"></div>
 
-<div class="results" id="results">
-<div class="sectionTitle">Plain Delta Conversion (No Buffer)</div>
-<div class="result-line"><span class="label">Option Stop-Loss Price</span><span class="value" id="rawSL">-</span></div>
-<div class="result-line"><span class="label">Risk per Unit</span><span class="value" id="rawRiskUnit">-</span></div>
-<div class="result-line"><span class="label">Total Risk (Lot)</span><span class="value" id="rawRiskTotal">-</span></div>
-<div class="result-line"><span class="label">% Risk on Premium</span><span class="value" id="rawRiskPct">-</span></div>
-
-<div class="sectionTitle">With Safety Buffer</div>
-<div class="highlight">
-<div class="result-line"><span class="label">Buffered Option Stop-Loss</span><span class="value" id="buffSL">-</span></div>
-<div class="result-line"><span class="label">Risk per Unit</span><span class="value" id="buffRiskUnit">-</span></div>
-<div class="result-line"><span class="label">Total Risk (Lot)</span><span class="value" id="buffRiskTotal">-</span></div>
-<div class="result-line"><span class="label">% Risk on Premium</span><span class="value" id="buffRiskPct">-</span></div>
-</div>
-</div>
-
 <div class="sizing">
-<h2>Position Size Calculator</h2>
-<div class="sub" style="margin-bottom:6px;">Linked to the stop-loss above: it uses your buffered risk per lot automatically.</div>
+<h2>Position Size Inputs</h2>
+<div class="sub" style="margin-bottom:6px;">Used together with the stop-loss above.</div>
 <div class="row">
 <div>
 <label>Trading Capital (₹)</label>
@@ -237,7 +248,51 @@ font-size: 13px;
 <input type="number" step="0.1" id="riskPct" placeholder="e.g. 1" oninput="updateSizing()">
 </div>
 </div>
+</div>
+
+<div class="target">
+<h2>Daily Profit Target Inputs</h2>
+<div class="sub" style="margin-bottom:6px;">Uses the entry premium, delta and lot size from above.</div>
+<div class="row">
+<div>
+<label>Daily Profit Target (% of capital)</label>
+<input type="number" step="0.1" id="targetPct" placeholder="e.g. 2.5" oninput="updateTarget()">
+</div>
+<div>
+<label>Number of Lots Held</label>
+<input type="number" id="targetLots" placeholder="e.g. 1" oninput="updateTarget()">
+</div>
+</div>
+</div>
+
+<button class="calc" id="calcBtn" onclick="calculate()">Calculate Stop-Loss</button>
+
+<div class="answer-grid" id="results">
+<div class="answer-box">
+<h3>Stop-Loss</h3>
+<div class="sectionTitle">Plain (No Buffer)</div>
+<div class="result-line"><span class="label">Option SL</span><span class="value" id="rawSL">-</span></div>
+<div class="result-line"><span class="label">Risk/Unit</span><span class="value" id="rawRiskUnit">-</span></div>
+<div class="result-line"><span class="label">Risk/Lot</span><span class="value" id="rawRiskTotal">-</span></div>
+<div class="result-line"><span class="label">% Risk</span><span class="value" id="rawRiskPct">-</span></div>
+<div class="sectionTitle">With Buffer</div>
+<div class="highlight">
+<div class="result-line"><span class="label">Option SL</span><span class="value" id="buffSL">-</span></div>
+<div class="result-line"><span class="label">Risk/Unit</span><span class="value" id="buffRiskUnit">-</span></div>
+<div class="result-line"><span class="label">Risk/Lot</span><span class="value" id="buffRiskTotal">-</span></div>
+<div class="result-line"><span class="label">% Risk</span><span class="value" id="buffRiskPct">-</span></div>
+</div>
+</div>
+
+<div class="answer-box">
+<h3>Position Size</h3>
 <div id="sizeOut"></div>
+</div>
+
+<div class="answer-box">
+<h3>Daily Target</h3>
+<div id="targetOut"></div>
+</div>
 </div>
 </div>
 
@@ -328,6 +383,8 @@ document.getElementById('buffRiskPct').innerText = buffRiskPct.toFixed(2) + '%';
 document.getElementById('results').classList.add('show');
 lastCalc = { rawRiskUnit: rawRiskUnit, buffRiskUnit: buffRiskUnit, entryPremium: entryPremium, lotSize: lotSize };
 updateSizing();
+updateTarget();
+document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 let lastCalc = null;
@@ -386,7 +443,47 @@ html += '<div class="bad">The premium outlay exceeds your capital. Reduce the lo
 out.innerHTML = html;
 }
 
+function updateTarget() {
+const out = document.getElementById('targetOut');
+if (!lastCalc) {
+out.innerHTML = '<div class="note">Run the stop-loss calculation above first.</div>';
+return;
+}
+const capital = parseFloat(document.getElementById('capital').value);
+const targetPct = parseFloat(document.getElementById('targetPct').value);
+const lots = parseFloat(document.getElementById('targetLots').value);
+const delta = parseFloat(document.getElementById('delta').value);
+const entryPremium = lastCalc.entryPremium;
+const lotSize = lastCalc.lotSize;
+
+if (isNaN(capital) || isNaN(targetPct) || isNaN(lots) || capital <= 0 || targetPct <= 0 || lots <= 0) {
+out.innerHTML = '<div class="note">Enter your capital, daily profit target percentage, and number of lots held.</div>';
+return;
+}
+if (isNaN(delta) || delta === 0) {
+out.innerHTML = '<div class="note">Enter a valid delta above.</div>';
+return;
+}
+
+const absDelta = Math.abs(delta);
+const profitRupees = capital * targetPct / 100;
+const totalQty = lots * lotSize;
+const premiumPointsNeeded = profitRupees / totalQty;
+const niftyPointsNeeded = premiumPointsNeeded / absDelta;
+const targetPremium = entryPremium + premiumPointsNeeded;
+
+let html = '<div class="sectionTitle">To Reach Your Daily Target</div><div class="highlight">';
+html += '<div class="result-line"><span class="label">Profit Needed</span><span class="value">' + inr(profitRupees) + '</span></div>';
+html += '<div class="result-line"><span class="label">Option Premium Points Needed</span><span class="value">' + premiumPointsNeeded.toFixed(2) + '</span></div>';
+html += '<div class="result-line"><span class="label">Target Option Premium</span><span class="value">' + inr(targetPremium) + '</span></div>';
+html += '<div class="result-line"><span class="label">Nifty Points Needed</span><span class="value">' + niftyPointsNeeded.toFixed(2) + '</span></div>';
+html += '</div>';
+html += '<div class="note">Based on the current delta of ' + absDelta.toFixed(2) + '. Delta changes as Nifty moves, so recheck it if the move is large.</div>';
+out.innerHTML = html;
+}
+
 updateSizing();
+updateTarget();
 setBuffer(5,'aplus');
 </script>
 </body>
